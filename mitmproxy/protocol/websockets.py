@@ -87,7 +87,7 @@ class WebSocketsLayer(base.Layer):
         if frame.header.opcode & 0x8 == 0:
             # forward the data frame to the other side
             other_conn.send(bytes(frame))
-            # TODO: make some hooks for inline scripts to modify data
+            self.log("WebSockets frame received by {}: {}".format(is_server, frame), "debug")
         elif frame.header.opcode in (websockets.OPCODE.PING, websockets.OPCODE.PONG):
             # just forward the ping/pong to the other side
             other_conn.send(bytes(frame))
