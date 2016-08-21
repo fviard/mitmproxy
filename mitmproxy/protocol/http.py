@@ -10,7 +10,6 @@ import six
 from mitmproxy import exceptions
 from mitmproxy import models
 from mitmproxy.protocol import base
-from .websockets import WebSocketsLayer
 
 import netlib.exceptions
 from netlib import http
@@ -178,20 +177,10 @@ class HttpLayer(base.Layer):
                     flow.request.headers["Proxy-Authorization"] = self.config.upstream_auth
                 self.process_request_hook(flow)
 
-                # WebSockets
-                if websockets.check_handshake(request.headers):
-                    if websockets.check_client_version(request.headers):
-                        layer = WebSocketsLayer(self, request)
-                        layer()
-                        return
-                    else:
-                        # we only support RFC6455 with WebSockets version 13
-                        self.send_response(models.make_error_response(
-                            400,
-                            http.status_codes.RESPONSES.get(400),
-                            http.Headers(sec_websocket_version="13")
-                        ))
-                        return
+                if websockets.check_handshake(request.headers) and websockets.check_client_version(request.headers):
+                    # we only support RFC6455 with WebSockets version 13
+                    # allow inline scripts to manupulate the client handshake
+                    self.channel.ask("websockets_handshake", flow)
 
                 if not flow.response:
                     self.establish_server_connection(
@@ -216,7 +205,7 @@ class HttpLayer(base.Layer):
                 # It may be useful to pass additional args (such as the upgrade header)
                 # to next_layer in the future
                 if flow.response.status_code == 101:
-                    layer = self.ctx.next_layer(self)
+                    layer = self.ctx.next_layer(self, flow)
                     layer()
                     return
 
